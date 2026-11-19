@@ -1,0 +1,46 @@
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f1f4f8;
+    margin: 0;
+}
+
+header {
+    background: #172b4d;
+    color: white;
+    text-align: center;
+    padding: 25px;
+}
+
+main {
+    margin: 30px;
+    padding: 25px;
+    background: white;
+    border-radius: 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    padding: 15px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+th {
+    background: #087e8b;
+    color: white;
+}
+
+button {
+    background: #087e8b;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}

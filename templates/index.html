@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IoT Monitoring Dashboard</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<header>
+    <h1>IoT Device Monitoring Dashboard</h1>
+    <p>Industrial Sensor Monitoring</p>
+</header>
+
+<main>
+
+    <h2>Device Information</h2>
+
+    <button onclick="updateData()">
+        Refresh Sensor Data
+    </button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Device ID</th>
+                <th>Temperature</th>
+                <th>Humidity</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody id="deviceData"></tbody>
+    </table>
+
+    <h3 id="message">Loading device information...</h3>
+
+</main>
+
+<script>
+
+async function loadDevices() {
+
+    try {
+        const response = await fetch("/api/devices");
+
+        if (!response.ok) {
+            throw new Error("Unable to fetch sensor data");
+        }
+
+        const devices = await response.json();
+
+        const table = document.getElementById("deviceData");
+        table.innerHTML = "";
+
+        devices.forEach(device => {
+
+            const status = device.temperature > 70
+                ? "High Temperature"
+                : "Normal";
+
+            const row = document.createElement("tr");
+
+            [
+                device.id,
+                device.temperature + " °C",
+                device.humidity + " %",
+                status
+            ].forEach(value => {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+
+            table.appendChild(row);
+        });
+
+        document.getElementById("message").textContent =
+            "Sensor data updated successfully";
+
+    } catch (error) {
+        document.getElementById("message").textContent =
+            error.message;
+    }
+}
+
+async function updateData() {
+
+    await fetch("/api/update", {
+        method: "POST"
+    });
+
+    loadDevices();
+}
+
+loadDevices();
+
+setInterval(loadDevices, 5000);
+
+</script>
+
+</body>
+</html>

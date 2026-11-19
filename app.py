@@ -1,15 +1,81 @@
 
 from flask import Flask, render_template, jsonify, request
-import random
 from datetime import datetime
+import random
 
 app = Flask(__name__)
 
 devices = [
-    {"id": "IOT-001", "temperature": 35, "humidity": 60},
-    {"id": "IOT-002", "temperature": 42, "humidity": 55},
-    {"id": "IOT-003", "temperature": 30, "humidity": 70}
+    {
+        "id": "IOT-001",
+        "name": "Temperature Sensor",
+        "location": "Production Floor",
+        "temperature": 28.5,
+        "humidity": 65,
+        "status": "Online"
+    },
+    {
+        "id": "IOT-002",
+        "name": "Pressure Sensor",
+        "location": "Assembly Unit",
+        "temperature": 32.1,
+        "humidity": 58,
+        "status": "Online"
+    },
+    {
+        "id": "IOT-003",
+        "name": "Vibration Sensor",
+        "location": "Machine Room",
+        "temperature": 35.4,
+        "humidity": 60,
+        "status": "Offline"
+    },
+    {
+        "id": "IOT-004",
+        "name": "Humidity Sensor",
+        "location": "Storage Area",
+        "temperature": 26.8,
+        "humidity": 72,
+        "status": "Online"
+    },
+    {
+        "id": "IOT-005",
+        "name": "Smart Gateway",
+        "location": "Control Room",
+        "temperature": 29.2,
+        "humidity": 55,
+        "status": "Online"
+    }
 ]
+
+history = []
+
+
+def add_history():
+    online_devices = [
+        d for d in devices if d["status"] == "Online"
+    ]
+
+    if online_devices:
+        avg_temp = round(
+            sum(d["temperature"] for d in online_devices)
+            / len(online_devices), 1
+        )
+    else:
+        avg_temp = 0
+
+    history.append({
+        "time": datetime.now().strftime("%H:%M:%S"),
+        "temperature": avg_temp
+    })
+
+    if len(history) > 20:
+        history.pop(0)
+
+
+# Initial chart data
+for _ in range(10):
+    add_history()
 
 
 @app.route("/")
@@ -20,9 +86,37 @@ def home():
 @app.route("/health")
 def health():
     return jsonify({
-        "status": "UP",
-        "application": "IoT Monitoring Application"
-    }), 200
+        "status": "healthy",
+        "application": "IoT Monitoring Dashboard"
+    })
+
+
+@app.route("/api/overview")
+def overview():
+
+    online = sum(
+        1 for d in devices if d["status"] == "Online"
+    )
+
+    offline = len(devices) - online
+
+    online_devices = [
+        d for d in devices if d["status"] == "Online"
+    ]
+
+    avg_temp = round(
+        sum(d["temperature"] for d in online_devices)
+        / len(online_devices), 1
+    ) if online_devices else 0
+
+    return jsonify({
+        "total": len(devices),
+        "online": online,
+        "offline": offline,
+        "average_temperature": avg_temp,
+        "devices": devices,
+        "history": history
+    })
 
 
 @app.route("/api/devices")
@@ -31,21 +125,25 @@ def get_devices():
 
 
 @app.route("/api/update", methods=["POST"])
-def update_devices():
+def update_device():
+
+    data = request.get_json(silent=True) or {}
+
+    device_id = data.get("id")
+    status = data.get("status")
+
+    if status not in ["Online", "Offline"]:
+        return jsonify({"error": "Invalid status"}), 400
 
     for device in devices:
-        device["temperature"] = round(
-            random.uniform(25, 85), 2
-        )
+        if device["id"] == device_id:
+            device["status"] = status
+            return jsonify({
+                "message": "Device updated",
+                "device": device
+            })
 
-        device["humidity"] = round(
-            random.uniform(30, 90), 2
-        )
-
-    return jsonify({
-        "message": "Sensor readings updated",
-        "devices": devices
-    })
+    return jsonify({"error": "Device not found"}), 404
 
 
 @app.route("/api/sensor", methods=["POST"])
@@ -53,7 +151,7 @@ def receive_sensor_data():
 
     data = request.get_json(silent=True) or {}
 
-    device_id = data.get("device_id")
+    device_id = data.get("id")
     temperature = data.get("temperature")
     humidity = data.get("humidity")
 
@@ -64,7 +162,7 @@ def receive_sensor_data():
         temperature = float(temperature)
         humidity = float(humidity)
     except (ValueError, TypeError):
-        return jsonify({"error": "Invalid sensor values"}), 400
+        return jsonify({"error": "Sensor values must be numeric"}), 400
 
     if not -50 <= temperature <= 150:
         return jsonify({"error": "Invalid temperature"}), 400
@@ -72,23 +170,35 @@ def receive_sensor_data():
     if not 0 <= humidity <= 100:
         return jsonify({"error": "Invalid humidity"}), 400
 
-    device = next(
-        (d for d in devices if d["id"] == device_id),
-        None
-    )
+    for device in devices:
+        if device["id"] == device_id:
+            device["temperature"] = temperature
+            device["humidity"] = humidity
+            device["status"] = "Online"
 
-    if device is None:
-        device = {"id": device_id}
-        devices.append(device)
+            add_history()
 
-    device["temperature"] = temperature
-    device["humidity"] = humidity
-    device["last_seen"] = datetime.now().isoformat()
+            return jsonify({
+                "message": "Sensor data received successfully",
+                "device": device
+            })
 
-    return jsonify({
-        "message": "Sensor data received successfully",
-        "device": device
-    }), 201
+    return jsonify({"error": "Device not found"}), 404
+
+
+@app.route("/api/simulate", methods=["POST"])
+def simulate_data():
+
+    for device in devices:
+        if device["status"] == "Online":
+            device["temperature"] = round(
+                random.uniform(24, 38), 1
+            )
+            device["humidity"] = random.randint(45, 80)
+
+    add_history()
+
+    return jsonify({"message": "Sensor data refreshed"})
 
 
 if __name__ == "__main__":

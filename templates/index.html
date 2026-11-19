@@ -1,105 +1,205 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>IoT Monitoring Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Command Center</title>
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 
-<header>
-    <h1>IoT Device Monitoring Dashboard</h1>
-    <p>Industrial Sensor Monitoring</p>
-</header>
+<div class="layout">
 
-<main>
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">◈</div>
+            <div>
+                <h2>IoT<span>Pulse</span></h2>
+                <small>MONITORING PLATFORM</small>
+            </div>
+        </div>
 
-    <h2>Device Information</h2>
+        <p class="menu-label">MAIN MENU</p>
 
-    <button onclick="updateData()">
-        Refresh Sensor Data
-    </button>
+        <nav>
+            <a href="#" class="nav-link active">▦ Dashboard</a>
+            <a href="#devices" class="nav-link">▣ Devices</a>
+            <a href="#analytics" class="nav-link">◷ Analytics</a>
+        </nav>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Device ID</th>
-                <th>Temperature</th>
-                <th>Humidity</th>
-                <th>Status</th>
-            </tr>
-        </thead>
+        <div class="sidebar-bottom">
+            <div class="connection">
+                <span class="pulse"></span>
+                <div>
+                    <strong>System Online</strong>
+                    <small>Monitoring active</small>
+                </div>
+            </div>
+            <small class="version">IoTPulse v1.0.0</small>
+        </div>
+    </aside>
 
-        <tbody id="deviceData"></tbody>
-    </table>
+    <main class="main-content">
 
-    <h3 id="message">Loading device information...</h3>
+        <header class="topbar">
+            <div>
+                <p class="breadcrumb">Monitoring / Overview</p>
+                <h1>IoT Dashboard</h1>
+                <p class="subtitle">Real-time industrial device monitoring</p>
+            </div>
 
-</main>
+            <div class="top-actions">
+                <div class="live-label">
+                    <span class="pulse"></span> LIVE
+                </div>
+                <button class="refresh-btn" onclick="refreshDashboard(true)">
+                    ↻ Refresh
+                </button>
+            </div>
+        </header>
 
-<script>
+        <section class="welcome">
+            <div>
+                <h2>Welcome to your Command Center</h2>
+                <p>Monitor your connected devices and sensor performance.</p>
+            </div>
+            <div class="date-display" id="currentDate"></div>
+        </section>
 
-async function loadDevices() {
+        <section class="stats-grid">
 
-    try {
-        const response = await fetch("/api/devices");
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span>Total Devices</span>
+                    <div class="stat-icon blue">▣</div>
+                </div>
+                <h2 id="totalDevices">0</h2>
+                <p>Registered devices</p>
+            </div>
 
-        if (!response.ok) {
-            throw new Error("Unable to fetch sensor data");
-        }
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span>Online Devices</span>
+                    <div class="stat-icon green">●</div>
+                </div>
+                <h2 id="onlineDevices">0</h2>
+                <p class="positive">Currently connected</p>
+            </div>
 
-        const devices = await response.json();
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span>Offline Devices</span>
+                    <div class="stat-icon red">◌</div>
+                </div>
+                <h2 id="offlineDevices">0</h2>
+                <p class="negative">Require attention</p>
+            </div>
 
-        const table = document.getElementById("deviceData");
-        table.innerHTML = "";
+            <div class="stat-card">
+                <div class="stat-top">
+                    <span>Average Temperature</span>
+                    <div class="stat-icon orange">♨</div>
+                </div>
+                <h2><span id="averageTemperature">0</span><small>°C</small></h2>
+                <p>Online device average</p>
+            </div>
 
-        devices.forEach(device => {
+        </section>
 
-            const status = device.temperature > 70
-                ? "High Temperature"
-                : "Normal";
+        <section class="content-grid" id="analytics">
 
-            const row = document.createElement("tr");
+            <div class="panel chart-panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>Temperature Overview</h3>
+                        <p>Average temperature of online devices</p>
+                    </div>
+                    <span class="chart-tag">LIVE DATA</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
 
-            [
-                device.id,
-                device.temperature + " °C",
-                device.humidity + " %",
-                status
-            ].forEach(value => {
-                const cell = document.createElement("td");
-                cell.textContent = value;
-                row.appendChild(cell);
-            });
+            <div class="panel system-panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>System Health</h3>
+                        <p>Device connectivity summary</p>
+                    </div>
+                </div>
 
-            table.appendChild(row);
-        });
+                <div class="health-circle" id="healthCircle">
+                    <div>
+                        <strong id="healthPercent">0%</strong>
+                        <small>Online</small>
+                    </div>
+                </div>
 
-        document.getElementById("message").textContent =
-            "Sensor data updated successfully";
+                <div class="health-legend">
+                    <div><span class="legend-dot green-dot"></span> Online
+                        <strong id="legendOnline">0</strong></div>
+                    <div><span class="legend-dot red-dot"></span> Offline
+                        <strong id="legendOffline">0</strong></div>
+                </div>
+            </div>
 
-    } catch (error) {
-        document.getElementById("message").textContent =
-            error.message;
-    }
-}
+        </section>
 
-async function updateData() {
+        <section class="panel device-panel" id="devices">
 
-    await fetch("/api/update", {
-        method: "POST"
-    });
+            <div class="panel-header device-header">
+                <div>
+                    <h3>Connected Devices</h3>
+                    <p>Monitor device status and sensor readings</p>
+                </div>
 
-    loadDevices();
-}
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search devices..."
+                    oninput="renderDevices()">
+            </div>
 
-loadDevices();
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>DEVICE ID</th>
+                            <th>DEVICE NAME</th>
+                            <th>LOCATION</th>
+                            <th>TEMPERATURE</th>
+                            <th>HUMIDITY</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTable">
+                        <tr>
+                            <td colspan="6">Loading devices...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-setInterval(loadDevices, 5000);
+            <div class="table-footer">
+                <span id="deviceCount">Showing 0 devices</span>
+                <span>Auto refresh: 5 seconds</span>
+            </div>
 
-</script>
+        </section>
 
+        <footer>
+            IoTPulse Monitoring Platform
+            <span>Powered by Python Flask</span>
+        </footer>
+
+    </main>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

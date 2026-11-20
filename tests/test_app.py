@@ -1,9 +1,11 @@
 
 from app import app
 
+
 def test_home_page():
     client = app.test_client()
     response = client.get("/")
+
     assert response.status_code == 200
 
 
@@ -12,7 +14,7 @@ def test_health_check():
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json["status"] == "UP"
+    assert response.json["status"] == "healthy"
 
 
 def test_device_api():
@@ -27,10 +29,15 @@ def test_sensor_update():
     client = app.test_client()
 
     response = client.post(
-        "/api/update"
+        "/api/update",
+        json={
+            "id": "IOT-004",
+            "status": "Online"
+        }
     )
 
     assert response.status_code == 200
+    assert response.json["message"] == "Device updated"
 
 
 def test_receive_sensor_data():
@@ -39,13 +46,15 @@ def test_receive_sensor_data():
     response = client.post(
         "/api/sensor",
         json={
-            "device_id": "IOT-004",
+            "id": "IOT-004",
             "temperature": 45,
             "humidity": 60
         }
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 200
+    assert response.json["device"]["temperature"] == 45.0
+    assert response.json["device"]["humidity"] == 60.0
 
 
 def test_invalid_sensor_data():
@@ -54,10 +63,11 @@ def test_invalid_sensor_data():
     response = client.post(
         "/api/sensor",
         json={
-            "device_id": "IOT-005",
+            "id": "IOT-005",
             "temperature": 45,
             "humidity": 150
         }
     )
 
     assert response.status_code == 400
+    assert response.json["error"] == "Invalid humidity"

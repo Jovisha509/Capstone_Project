@@ -19,9 +19,9 @@ pipeline {
                 sh '''
                     python3 -m venv .venv
                     .venv/bin/python -m pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pytest
-                '''
+                    .venv/bin/python -m pip install -r requirements.txt
+                    .venv/bin/python -m pytest tests/
+                    '''
             }
         }
 
@@ -56,10 +56,10 @@ pipeline {
                     sh '''
                         ssh -o StrictHostKeyChecking=yes ubuntu@$EC2_HOST '
                             sudo docker pull $IMAGE_NAME:latest
-                            sudo docker stop iot-dashboard || true
-                            sudo docker rm iot-dashboard || true
+                            sudo docker stop capstone_proj_repo || true
+                            sudo docker rm capstone_proj_repo || true
                             sudo docker run -d \
-                                --name iot-dashboard \
+                                --name capstone_proj_repo \
                                 --restart unless-stopped \
                                 -p 5000:5000 \
                                 $IMAGE_NAME:latest

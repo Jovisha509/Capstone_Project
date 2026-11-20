@@ -54,7 +54,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['ec2-ssh-key']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=yes ubuntu@$EC2_HOST '
+                        ssh -o StrictHostKeyChecking=yes ubuntu@$EC2_HOST "
                             sudo docker pull $IMAGE_NAME:latest
                             sudo docker stop capstone_proj_repo || true
                             sudo docker rm capstone_proj_repo || true

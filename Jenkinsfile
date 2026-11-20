@@ -10,6 +10,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
+                    credentialsId: 'Github-token',
                     url: 'https://github.com/Jovisha509/Capstone_Project.git'
             }
         }

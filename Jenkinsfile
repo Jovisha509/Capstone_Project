@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "jovishajv/iot-dashboard"
+        IMAGE_NAME = "jovishajv/capstone_proj_repo"
         EC2_HOST = "40.192.2.44"
     }
 

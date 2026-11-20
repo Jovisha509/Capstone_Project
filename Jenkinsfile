@@ -50,23 +50,25 @@ pipeline {
 
 
 
+        
         stage('Deploy to EC2') {
             steps {
-                sshagent(credentials: ['ec2-ssh-key']) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=yes ubuntu@$EC2_HOST "
-                            sudo docker pull $IMAGE_NAME:latest
-                            sudo docker stop capstone_proj_repo || true
-                            sudo docker rm capstone_proj_repo || true
-                            sudo docker run -d \
-                                --name capstone_proj_repo \
-                                --restart unless-stopped \
-                                -p 5000:5000 \
-                                $IMAGE_NAME:latest
-                        '
-                    '''
-                }
+                sh '''
+                    docker pull $IMAGE_NAME:latest
+
+                    docker stop capstone_proj_repo || true
+                    docker rm capstone_proj_repo || true
+
+                    docker run -d \
+                        --name capstone_proj_repo \
+                        --restart unless-stopped \
+                        -p 5000:5000 \
+                        $IMAGE_NAME:latest
+
+                    docker ps
+                '''
             }
-        }
+}
+
     }
 }

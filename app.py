@@ -51,6 +51,9 @@ def add_history():
         "online_devices": sum(
             1 for device in devices
             if device["status"] == "Online"
+        ),
+        "average_temperature": round(
+            sum(d["temperature"] for d in devices) / len(devices), 2
         )
     })
 

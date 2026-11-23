@@ -101,85 +101,19 @@ function renderDevices() {
 
 async function refreshDashboard() {
     try {
-        const response = await fetch("/api/devices");
+        const response = await fetch('/api/devices');
 
         if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+            throw new Error('Failed to fetch device data');
         }
 
         devices = await response.json();
 
-        const onlineDevices = devices.filter(
-            device => String(device.status).toLowerCase() === "online"
-        );
-
-        const offlineDevices = devices.length - onlineDevices.length;
-
-        const temperatures = onlineDevices
-            .map(device => Number(device.temperature))
-            .filter(value => Number.isFinite(value));
-
-        const averageTemperature = temperatures.length
-            ? (
-                temperatures.reduce((sum, value) => sum + value, 0) /
-                temperatures.length
-              ).toFixed(1)
-            : "0.0";
-
-        document.getElementById("totalDevices").textContent =
-            devices.length;
-
-        document.getElementById("onlineDevices").textContent =
-            onlineDevices.length;
-
-        document.getElementById("offlineDevices").textContent =
-            offlineDevices;
-
-        document.getElementById("averageTemperature").textContent =
-            averageTemperature;
-
-        document.getElementById("legendOnline").textContent =
-            onlineDevices.length;
-
-        document.getElementById("legendOffline").textContent =
-            offlineDevices;
-
-        const percentage = devices.length
-            ? Math.round((onlineDevices.length / devices.length) * 100)
-            : 0;
-
-        document.getElementById("healthPercent").textContent =
-            percentage + "%";
-
-        document.getElementById("healthCircle").style.background =
-            `conic-gradient(#16a34a ${percentage}%, #e9eef5 ${percentage}%)`;
-
         renderDevices();
-
-        // Keep a short history of average temperatures in this browser.
-        temperatureHistory.push({
-            time: new Date().toLocaleTimeString("en-IN"),
-            temperature: Number(averageTemperature)
-        });
-
-        if (temperatureHistory.length > 10) {
-            temperatureHistory.shift();
-        }
-
-        if (temperatureChart) {
-            temperatureChart.data.labels =
-                temperatureHistory.map(item => item.time);
-
-            temperatureChart.data.datasets[0].data =
-                temperatureHistory.map(item => item.temperature);
-
-            temperatureChart.update();
-        }
-
-        console.log("Dashboard updated successfully", devices);
+        updateStatistics();
 
     } catch (error) {
-        console.error("Dashboard error:", error);
+        console.error('Dashboard refresh error:', error);
     }
 }
 

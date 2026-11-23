@@ -99,6 +99,35 @@ function renderDevices() {
         `Showing ${filtered.length} of ${devices.length} devices`;
 }
 
+function updateStatistics(devices) {
+
+    const total = devices.length;
+
+    const online = devices.filter(
+        device => device.status === "Online"
+    ).length;
+
+    const offline = total - online;
+
+    const averageTemperature = online > 0
+        ? devices
+            .filter(device => device.status === "Online")
+            .reduce((sum, device) => sum + Number(device.temperature), 0) / online
+        : 0;
+
+    document.getElementById("totalDevices").textContent = total;
+    document.getElementById("onlineDevices").textContent = online;
+    document.getElementById("offlineDevices").textContent = offline;
+    document.getElementById("averageTemperature").textContent =
+        averageTemperature.toFixed(1) + "°C";
+
+    document.getElementById("healthPercent").textContent =
+        total > 0 ? Math.round((online / total) * 100) + "%" : "0%";
+
+    document.getElementById("legendOnline").textContent = online;
+    document.getElementById("legendOffline").textContent = offline;
+}
+
 async function refreshDashboard() {
     try {
         const response = await fetch('/api/devices', {

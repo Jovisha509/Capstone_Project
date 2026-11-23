@@ -1,173 +1,119 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Command Center</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Industrial IoT | Device Operations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-
 <body>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="/">
+      <span class="brand-mark">I</span>
+      <span><strong>INDUSTRIX</strong><small>DEVICE CLOUD</small></span>
+    </a>
+    <div class="nav-label">WORKSPACE</div>
+    <a class="nav-item active" href="#overview"><span>▦</span> Overview</a>
+    <a class="nav-item" href="#devices"><span>▤</span> Devices <em id="navDeviceCount">5</em></a>
+    <a class="nav-item" href="#analytics"><span>⌁</span> Analytics</a>
+    <div class="sidebar-bottom">
+      <div class="connection-card">
+        <span class="connection-pulse"></span>
+        <div><strong>Cloud connection</strong><small>Flask API connected</small></div>
+      </div>
+      <div class="sidebar-foot">INDUSTRIAL MONITORING<br>PLATFORM · v1.0</div>
+    </div>
+  </aside>
 
-<div class="app-container">
-
+  <main class="main-content" id="overview">
     <header class="topbar">
-        <div>
-            <div class="eyebrow">INDUSTRIAL IOT MONITORING</div>
-            <h1>Device Command Center</h1>
-            <p class="subtitle">Monitor your connected devices and sensor readings</p>
-        </div>
-
-        <div class="header-actions">
-            <div class="live-indicator">
-                <span class="live-dot"></span>
-                SYSTEM ONLINE
-            </div>
-
-            <button id="refreshButton" class="refresh-button"
-                    onclick="refreshDashboard()">
-                ↻ Refresh readings
-            </button>
-        </div>
+      <div>
+        <div class="breadcrumb">WORKSPACE <span>/</span> OVERVIEW</div>
+        <h1>Device operations</h1>
+        <p class="page-subtitle">Monitor your industrial IoT network in real time.</p>
+      </div>
+      <div class="top-actions">
+        <div class="live-pill"><i></i> LIVE MONITORING</div>
+        <button class="refresh-button" id="refreshButton" onclick="refreshDashboard()">↻ <span>Refresh readings</span></button>
+      </div>
     </header>
 
-    <div class="status-bar">
-        <span>● Dashboard connected</span>
-        <span id="lastUpdated">Waiting for data...</span>
+    <div class="status-strip">
+      <div><span class="strip-dot"></span><strong>System operational</strong><span class="strip-divider">|</span><span id="lastUpdated">Connecting to server...</span></div>
+      <span class="strip-right">AUTO-REFRESH <strong>10 SEC</strong></span>
     </div>
 
-    <section class="summary-grid">
-
-        <div class="summary-card">
-            <div class="card-label">TOTAL DEVICES</div>
-            <div class="card-value" id="totalDevices">0</div>
-            <div class="card-note">Registered devices</div>
-        </div>
-
-        <div class="summary-card">
-            <div class="card-label">ONLINE DEVICES</div>
-            <div class="card-value green" id="onlineDevices">0</div>
-            <div class="card-note">Currently connected</div>
-        </div>
-
-        <div class="summary-card">
-            <div class="card-label">OFFLINE DEVICES</div>
-            <div class="card-value red" id="offlineDevices">0</div>
-            <div class="card-note">Not communicating</div>
-        </div>
-
-        <div class="summary-card">
-            <div class="card-label">AVERAGE TEMPERATURE</div>
-            <div class="card-value" id="averageTemperature">0°C</div>
-            <div class="card-note">Online devices only</div>
-        </div>
-
+    <section class="section-block">
+      <div class="section-title"><div><span class="section-kicker">NETWORK SUMMARY</span><h2>At a glance</h2></div><span class="section-hint">Live device telemetry</span></div>
+      <div class="summary-grid">
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-label">TOTAL DEVICES</span><span class="metric-icon blue-icon">▦</span></div>
+          <div class="metric-value" id="totalDevices">—</div><div class="metric-foot">Registered in network</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-label">ONLINE DEVICES</span><span class="metric-icon green-icon">⌁</span></div>
+          <div class="metric-value green" id="onlineDevices">—</div><div class="metric-foot">Currently transmitting</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-label">OFFLINE DEVICES</span><span class="metric-icon red-icon">⊘</span></div>
+          <div class="metric-value red" id="offlineDevices">—</div><div class="metric-foot">Require attention</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-label">AVG. TEMPERATURE</span><span class="metric-icon amber-icon">♨</span></div>
+          <div class="metric-value" id="averageTemperature">—</div><div class="metric-foot">Across online devices</div>
+        </article>
+      </div>
     </section>
 
-    <section class="content-grid">
-
-        <div class="panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Device availability</h2>
-                    <p>Connection status overview</p>
-                </div>
-            </div>
-
-            <div class="availability-content">
-                <div class="donut" id="healthCircle">
-                    <div class="donut-center">
-                        <strong id="healthPercent">0%</strong>
-                        <span>ONLINE</span>
-                    </div>
-                </div>
-
-                <div class="legend">
-                    <div>
-                        <span class="legend-dot green-bg"></span>
-                        Online
-                        <strong id="legendOnline">0</strong>
-                    </div>
-
-                    <div>
-                        <span class="legend-dot red-bg"></span>
-                        Offline
-                        <strong id="legendOffline">0</strong>
-                    </div>
-                </div>
-            </div>
+    <section class="overview-grid section-block" id="analytics">
+      <article class="panel health-panel">
+        <div class="panel-heading"><div><span class="section-kicker">NETWORK STATUS</span><h2>Device availability</h2></div><span class="panel-menu">•••</span></div>
+        <div class="health-content">
+          <div class="donut" id="healthCircle"><div class="donut-center"><strong id="healthPercent">—</strong><span>ONLINE</span></div></div>
+          <div class="health-legend">
+            <div><span class="legend-key"><i class="legend-dot online-dot"></i>Online</span><strong id="legendOnline">—</strong></div>
+            <div><span class="legend-key"><i class="legend-dot offline-dot"></i>Offline</span><strong id="legendOffline">—</strong></div>
+          </div>
         </div>
-
-        <div class="panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Temperature overview</h2>
-                    <p>Latest readings from online devices</p>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="temperatureChart"></canvas>
-            </div>
-        </div>
-
+        <div class="health-note"><span>●</span> Availability is calculated from current device status.</div>
+      </article>
+      <article class="panel chart-panel">
+        <div class="panel-heading"><div><span class="section-kicker">SENSOR TELEMETRY</span><h2>Temperature readings</h2><p>Current temperature by online device</p></div><span class="chart-unit">°C</span></div>
+        <div class="chart-container"><canvas id="temperatureChart"></canvas></div>
+      </article>
     </section>
 
-    <section class="panel device-panel">
-
-        <div class="panel-heading device-heading">
-            <div>
-                <h2>Connected devices</h2>
-                <p>Device status and sensor information</p>
-            </div>
-
-            <input type="text" id="searchInput"
-                   placeholder="Search device ID or name...">
+    <section class="panel device-panel section-block" id="devices">
+      <div class="panel-heading device-heading">
+        <div><span class="section-kicker">NETWORK INVENTORY</span><h2>Connected devices</h2><p>Inspect device health and latest sensor readings.</p></div>
+        <div class="table-tools">
+          <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Search devices..."></label>
+          <select id="statusFilter" aria-label="Filter by status"><option value="all">All statuses</option><option value="Online">Online</option><option value="Offline">Offline</option></select>
         </div>
-
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>DEVICE</th>
-                        <th>LOCATION</th>
-                        <th>STATUS</th>
-                        <th>TEMPERATURE</th>
-                        <th>HUMIDITY</th>
-                        <th>LAST UPDATED</th>
-                    </tr>
-                </thead>
-
-                <tbody id="deviceTable">
-                    <tr>
-                        <td colspan="6" class="empty-state">
-                            Loading devices...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="table-footer" id="deviceCount">
-            Showing 0 devices
-        </div>
-
-        <div id="message" class="message"></div>
-
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>DEVICE</th><th>LOCATION</th><th>STATUS</th><th>TEMPERATURE</th><th>HUMIDITY</th><th>LAST UPDATE</th></tr></thead>
+          <tbody id="deviceTable"><tr><td colspan="6" class="empty-state">Loading device data...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="table-bottom"><span id="deviceCount">Loading devices...</span><span class="table-live"><i></i> Updates automatically</span></div>
     </section>
 
-    <footer>
-        IoT Command Center · Demo sensor data · Auto refresh every 10 seconds
-    </footer>
+    <section class="alerts-panel section-block">
+      <div class="alerts-heading"><div><span class="section-kicker">ATTENTION CENTER</span><h2>Device alerts</h2></div><span class="alert-count" id="alertCount">0 alerts</span></div>
+      <div id="alertsList" class="alerts-list"><div class="no-alerts">No alerts to display yet.</div></div>
+    </section>
 
+    <div id="message" class="message" role="status" aria-live="polite"></div>
+    <footer><span>INDUSTRIX DEVICE CLOUD</span><span>Industrial IoT monitoring dashboard</span></footer>
+  </main>
 </div>
-
 <script src="{{ url_for('static', filename='app.js') }}"></script>
-
 </body>
 </html>

@@ -1,6 +1,7 @@
 
 let devices = [];
 let temperatureChart;
+let temperatureHistory = [];
 
 document.getElementById("currentDate").textContent =
     new Date().toLocaleDateString("en-IN", {
@@ -8,7 +9,6 @@ document.getElementById("currentDate").textContent =
         month: "short",
         year: "numeric"
     });
-
 
 function initializeChart() {
     const ctx = document.getElementById("temperatureChart");
@@ -53,16 +53,16 @@ function initializeChart() {
     });
 }
 
-
 function renderDevices() {
     const table = document.getElementById("deviceTable");
     const search = document.getElementById("searchInput")
         .value.toLowerCase();
 
     const filtered = devices.filter(device =>
-        device.id.toLowerCase().includes(search) ||
-        device.name.toLowerCase().includes(search) ||
-        device.location.toLowerCase().includes(search)
+        String(device.id || "").toLowerCase().includes(search) ||
+        String(device.name || "").toLowerCase().includes(search) ||
+        String(device.location || "Not specified")
+            .toLowerCase().includes(search)
     );
 
     table.innerHTML = "";
@@ -73,21 +73,22 @@ function renderDevices() {
     }
 
     filtered.forEach(device => {
+        const status = String(device.status || "Offline");
         const statusClass =
-            device.status === "Online"
+            status.toLowerCase() === "online"
                 ? "status-online"
                 : "status-offline";
 
         table.innerHTML += `
             <tr>
                 <td class="device-id">${device.id}</td>
-                <td>${device.name}</td>
-                <td>${device.location}</td>
-                <td>${device.temperature} °C</td>
-                <td>${device.humidity}%</td>
+                <td>${device.name || "Unknown"}</td>
+                <td>${device.location || "Not specified"}</td>
+                <td>${device.temperature ?? "--"} °C</td>
+                <td>${device.humidity ?? "--"}%</td>
                 <td>
                     <span class="status ${statusClass}">
-                        ${device.status}
+                        ${status}
                     </span>
                 </td>
             </tr>
@@ -98,45 +99,53 @@ function renderDevices() {
         `Showing ${filtered.length} of ${devices.length} devices`;
 }
 
-
-async function refreshDashboard(simulate = false) {
+async function refreshDashboard() {
     try {
-        if (simulate) {
-            await fetch("/api/simulate", {
-                method: "POST"
-            });
-        }
-
-        const response = await fetch("/api/overview");
+        const response = await fetch("/api/devices");
 
         if (!response.ok) {
-            throw new Error("Unable to load dashboard data");
+            throw new Error(`API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        devices = await response.json();
 
-        devices = data.devices;
+        const onlineDevices = devices.filter(
+            device => String(device.status).toLowerCase() === "online"
+        );
+
+        const offlineDevices = devices.length - onlineDevices.length;
+
+        const temperatures = onlineDevices
+            .map(device => Number(device.temperature))
+            .filter(value => Number.isFinite(value));
+
+        const averageTemperature = temperatures.length
+            ? (
+                temperatures.reduce((sum, value) => sum + value, 0) /
+                temperatures.length
+              ).toFixed(1)
+            : "0.0";
 
         document.getElementById("totalDevices").textContent =
-            data.total;
+            devices.length;
 
         document.getElementById("onlineDevices").textContent =
-            data.online;
+            onlineDevices.length;
 
         document.getElementById("offlineDevices").textContent =
-            data.offline;
+            offlineDevices;
 
         document.getElementById("averageTemperature").textContent =
-            data.average_temperature;
+            averageTemperature;
 
         document.getElementById("legendOnline").textContent =
-            data.online;
+            onlineDevices.length;
 
         document.getElementById("legendOffline").textContent =
-            data.offline;
+            offlineDevices;
 
-        const percentage = data.total
-            ? Math.round((data.online / data.total) * 100)
+        const percentage = devices.length
+            ? Math.round((onlineDevices.length / devices.length) * 100)
             : 0;
 
         document.getElementById("healthPercent").textContent =
@@ -147,24 +156,35 @@ async function refreshDashboard(simulate = false) {
 
         renderDevices();
 
+        // Keep a short history of average temperatures in this browser.
+        temperatureHistory.push({
+            time: new Date().toLocaleTimeString("en-IN"),
+            temperature: Number(averageTemperature)
+        });
+
+        if (temperatureHistory.length > 10) {
+            temperatureHistory.shift();
+        }
+
         if (temperatureChart) {
             temperatureChart.data.labels =
-                data.history.map(item => item.time);
+                temperatureHistory.map(item => item.time);
 
             temperatureChart.data.datasets[0].data =
-                data.history.map(item => item.temperature);
+                temperatureHistory.map(item => item.temperature);
 
             temperatureChart.update();
         }
+
+        console.log("Dashboard updated successfully", devices);
 
     } catch (error) {
         console.error("Dashboard error:", error);
     }
 }
 
-
 initializeChart();
 refreshDashboard();
 
-// Automatically refresh dashboard every 5 seconds
+// Automatically refresh every 5 seconds.
 setInterval(refreshDashboard, 5000);

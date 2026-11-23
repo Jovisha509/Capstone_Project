@@ -1,146 +1,176 @@
 
 from flask import Flask, render_template, jsonify, request
+from threading import Lock
+from datetime import datetime
+import random
 
 app = Flask(__name__)
 
-# Sample IoT device data
+data_lock = Lock()
+
 devices = [
     {
         "id": "IOT-001",
         "name": "Temperature Sensor",
+        "location": "Production Unit A",
         "status": "Online",
         "temperature": 28.5,
-        "humidity": 60
+        "humidity": 60,
+        "last_updated": ""
     },
     {
         "id": "IOT-002",
         "name": "Pressure Sensor",
+        "location": "Production Unit B",
         "status": "Online",
         "temperature": 30.0,
-        "humidity": 55
+        "humidity": 55,
+        "last_updated": ""
     },
     {
         "id": "IOT-003",
         "name": "Vibration Sensor",
+        "location": "Motor Section",
         "status": "Offline",
         "temperature": 32.0,
-        "humidity": 50
+        "humidity": 50,
+        "last_updated": ""
     },
     {
         "id": "IOT-004",
         "name": "Humidity Sensor",
+        "location": "Storage Area",
         "status": "Online",
         "temperature": 27.0,
-        "humidity": 65
+        "humidity": 65,
+        "last_updated": ""
     },
     {
         "id": "IOT-005",
         "name": "Smart Gateway",
+        "location": "Control Room",
         "status": "Online",
         "temperature": 29.0,
-        "humidity": 58
+        "humidity": 58,
+        "last_updated": ""
     }
 ]
 
-sensor_history = []
+for device in devices:
+    device["last_updated"] = datetime.now().isoformat(timespec="seconds")
 
 
-def add_history():
-    sensor_history.append({
-        "device_count": len(devices),
-        "online_devices": sum(
-            1 for device in devices
-            if device["status"] == "Online"
-        ),
-        "average_temperature": round(
-            sum(d["temperature"] for d in devices) / len(devices), 2
-        )
-    })
+def get_devices():
+    return [device.copy() for device in devices]
 
 
 @app.route("/")
-def home():
-    return render_template("index.html", devices=devices)
+def dashboard():
+    return render_template("index.html")
 
 
 @app.route("/health")
 def health():
     return jsonify({
         "status": "healthy",
-        "application": "IoT Monitoring Dashboard"
-    }), 200
+        "message": "IoT Dashboard API is running"
+    })
 
 
 @app.route("/api/devices", methods=["GET"])
-def get_devices():
-    return jsonify(devices), 200
+def get_all_devices():
+    with data_lock:
+        return jsonify(get_devices())
 
 
-@app.route("/api/update", methods=["POST"])
-def update_device():
-    data = request.get_json(silent=True) or {}
+@app.route("/api/refresh", methods=["POST"])
+def refresh_devices():
+    """Generate new readings for online demo devices."""
 
-    device_id = data.get("id")
-    status = data.get("status")
+    with data_lock:
+        for device in devices:
 
-    if not device_id or status not in ["Online", "Offline"]:
-        return jsonify({"error": "Invalid status"}), 400
+            if device["status"] == "Offline":
+                continue
 
-    for device in devices:
-        if device["id"] == device_id:
-            device["status"] = status
-            return jsonify({
-                "message": "Device updated",
-                "device": device
-            }), 200
+            device["temperature"] = round(
+                max(0, min(100, device["temperature"] +
+                           random.uniform(-1.5, 1.5))), 1
+            )
 
-    return jsonify({"error": "Device not found"}), 404
+            device["humidity"] = round(
+                max(0, min(100, device["humidity"] +
+                           random.uniform(-3, 3))), 1
+            )
+
+            device["last_updated"] = datetime.now().isoformat(
+                timespec="seconds"
+            )
+
+        return jsonify({
+            "success": True,
+            "message": "Sensor readings refreshed",
+            "devices": get_devices()
+        })
 
 
 @app.route("/api/sensor", methods=["POST"])
-def receive_sensor_data():
+def update_sensor():
+    """Accept readings from a real or simulated IoT device."""
+
     data = request.get_json(silent=True) or {}
 
-    device_id = data.get("id")
+    device_id = data.get("device_id")
     temperature = data.get("temperature")
     humidity = data.get("humidity")
 
-    if not device_id or temperature is None or humidity is None:
-        return jsonify({"error": "Missing sensor data"}), 400
+    if not device_id:
+        return jsonify({
+            "success": False,
+            "message": "device_id is required"
+        }), 400
 
     try:
         temperature = float(temperature)
         humidity = float(humidity)
-    except (ValueError, TypeError):
+    except (TypeError, ValueError):
         return jsonify({
-            "error": "Sensor values must be numeric"
+            "success": False,
+            "message": "Temperature and humidity must be numbers"
         }), 400
 
-    if not -50 <= temperature <= 150:
-        return jsonify({"error": "Invalid temperature"}), 400
+    if not 0 <= temperature <= 100:
+        return jsonify({
+            "success": False,
+            "message": "Temperature must be between 0 and 100"
+        }), 400
 
     if not 0 <= humidity <= 100:
-        return jsonify({"error": "Invalid humidity"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Humidity must be between 0 and 100"
+        }), 400
 
-    for device in devices:
-        if device["id"] == device_id:
-            device["temperature"] = temperature
-            device["humidity"] = humidity
-            device["status"] = "Online"
+    with data_lock:
+        for device in devices:
+            if device["id"] == device_id:
+                device["temperature"] = round(temperature, 1)
+                device["humidity"] = round(humidity, 1)
+                device["status"] = "Online"
+                device["last_updated"] = datetime.now().isoformat(
+                    timespec="seconds"
+                )
 
-            add_history()
+                return jsonify({
+                    "success": True,
+                    "message": "Sensor data updated successfully",
+                    "device": device.copy()
+                })
 
-            return jsonify({
-                "message": "Sensor data received successfully",
-                "device": device
-            }), 200
-
-    return jsonify({"error": "Device not found"}), 404
-
-
-@app.route("/api/history", methods=["GET"])
-def get_history():
-    return jsonify(sensor_history), 200
+    return jsonify({
+        "success": False,
+        "message": "Device not found"
+    }), 404
 
 
 if __name__ == "__main__":

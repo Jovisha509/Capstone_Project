@@ -4,202 +4,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Command Center</title>
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>IoT Device Dashboard</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 25px;
+            background: #f4f6f9;
+            color: #333;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        button {
+            padding: 10px 18px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px #00000012;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: #555;
+        }
+
+        .card p {
+            font-size: 25px;
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        input {
+            padding: 10px;
+            width: 250px;
+            max-width: 90%;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 13px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f1f5f9;
+        }
+
+        .online {
+            color: green;
+            font-weight: bold;
+        }
+
+        .offline {
+            color: red;
+            font-weight: bold;
+        }
+
+        #message {
+            margin: 10px 0;
+            color: #555;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="layout">
-
-    <aside class="sidebar">
-        <div class="brand">
-            <div class="brand-icon">◈</div>
-            <div>
-                <h2>IoT<span>Pulse</span></h2>
-                <small>MONITORING PLATFORM</small>
-            </div>
+    <header>
+        <div>
+            <h1>IoT Device Dashboard</h1>
+            <p>Monitor your connected IoT devices</p>
+            <p id="currentDate"></p>
         </div>
 
-        <p class="menu-label">MAIN MENU</p>
+        <button type="button" onclick="refreshDashboard()">
+            Refresh
+        </button>
+    </header>
 
-        <nav>
-            <a href="#" class="nav-link active">▦ Dashboard</a>
-            <a href="#devices" class="nav-link">▣ Devices</a>
-            <a href="#analytics" class="nav-link">◷ Analytics</a>
-        </nav>
+    <section class="cards">
 
-        <div class="sidebar-bottom">
-            <div class="connection">
-                <span class="pulse"></span>
-                <div>
-                    <strong>System Online</strong>
-                    <small>Monitoring active</small>
-                </div>
-            </div>
-            <small class="version">IoTPulse v1.0.0</small>
+        <div class="card">
+            <h3>Total Devices</h3>
+            <p id="totalDevices">0</p>
         </div>
-    </aside>
 
-    <main class="main-content">
+        <div class="card">
+            <h3>Online Devices</h3>
+            <p id="onlineDevices">0</p>
+        </div>
 
-        <header class="topbar">
-            <div>
-                <p class="breadcrumb">Monitoring / Overview</p>
-                <h1>IoT Dashboard</h1>
-                <p class="subtitle">Real-time industrial device monitoring</p>
-            </div>
+        <div class="card">
+            <h3>Offline Devices</h3>
+            <p id="offlineDevices">0</p>
+        </div>
 
-            <div class="top-actions">
-                <div class="live-label">
-                    <span class="pulse"></span> LIVE
-                </div>
-                <button type="button" onclick="refreshDashboard()">
-                    Refresh
-                </button>
-            </div>
-        </header>
+        <div class="card">
+            <h3>Average Temperature</h3>
+            <p id="averageTemperature">0°C</p>
+        </div>
 
-        <section class="welcome">
-            <div>
-                <h2>Welcome to your Command Center</h2>
-                <p>Monitor your connected devices and sensor performance.</p>
-            </div>
-            <div class="date-display" id="currentDate"></div>
-        </section>
+    </section>
 
-        <section class="stats-grid">
+    <section class="table-container">
 
-            <div class="stat-card">
-                <div class="stat-top">
-                    <span>Total Devices</span>
-                    <div class="stat-icon blue">▣</div>
-                </div>
-                <h2 id="totalDevices">0</h2>
-                <p>Registered devices</p>
-            </div>
+        <h2>Device Details</h2>
 
-            <div class="stat-card">
-                <div class="stat-top">
-                    <span>Online Devices</span>
-                    <div class="stat-icon green">●</div>
-                </div>
-                <h2 id="onlineDevices">0</h2>
-                <p class="positive">Currently connected</p>
-            </div>
+        <input
+            type="text"
+            id="searchInput"
+            placeholder="Search device..."
+        >
 
-            <div class="stat-card">
-                <div class="stat-top">
-                    <span>Offline Devices</span>
-                    <div class="stat-icon red">◌</div>
-                </div>
-                <h2 id="offlineDevices">0</h2>
-                <p class="negative">Require attention</p>
-            </div>
+        <p id="message">Loading device details...</p>
 
-            <div class="stat-card">
-                <div class="stat-top">
-                    <span>Average Temperature</span>
-                    <div class="stat-icon orange">♨</div>
-                </div>
-                <h2><span id="averageTemperature">0</span><small>°C</small></h2>
-                <p>Online device average</p>
-            </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Device ID</th>
+                    <th>Device Name</th>
+                    <th>Status</th>
+                    <th>Temperature</th>
+                    <th>Humidity</th>
+                </tr>
+            </thead>
 
-        </section>
+            <tbody id="deviceTable">
+                <tr>
+                    <td colspan="5">Loading devices...</td>
+                </tr>
+            </tbody>
+        </table>
 
-        <section class="content-grid" id="analytics">
+        <p id="deviceCount">Showing 0 devices</p>
 
-            <div class="panel chart-panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>Temperature Overview</h3>
-                        <p>Average temperature of online devices</p>
-                    </div>
-                    <span class="chart-tag">LIVE DATA</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="temperatureChart"></canvas>
-                </div>
-            </div>
+    </section>
 
-            <div class="panel system-panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>System Health</h3>
-                        <p>Device connectivity summary</p>
-                    </div>
-                </div>
+    <!-- Load JavaScript at the end of the body -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 
-                <div class="health-circle" id="healthCircle">
-                    <div>
-                        <strong id="healthPercent">0%</strong>
-                        <small>Online</small>
-                    </div>
-                </div>
-
-                <div class="health-legend">
-                    <div><span class="legend-dot green-dot"></span> Online
-                        <strong id="legendOnline">0</strong></div>
-                    <div><span class="legend-dot red-dot"></span> Offline
-                        <strong id="legendOffline">0</strong></div>
-                </div>
-            </div>
-
-        </section>
-
-        <section class="panel device-panel" id="devices">
-
-            <div class="panel-header device-header">
-                <div>
-                    <h3>Connected Devices</h3>
-                    <p>Monitor device status and sensor readings</p>
-                </div>
-
-                <input
-                    type="text"
-                    id="searchInput"
-                    placeholder="Search devices..."
-                    oninput="renderDevices()">
-            </div>
-
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>DEVICE ID</th>
-                            <th>DEVICE NAME</th>
-                            <th>LOCATION</th>
-                            <th>TEMPERATURE</th>
-                            <th>HUMIDITY</th>
-                            <th>STATUS</th>
-                        </tr>
-                    </thead>
-                    <tbody id="deviceTable">
-                        <tr>
-                            <td colspan="6">Loading devices...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="table-footer">
-                <span id="deviceCount">Showing 0 devices</span>
-                <span>Auto refresh: 5 seconds</span>
-            </div>
-
-        </section>
-
-        <footer>
-            IoTPulse Monitoring Platform
-            <span>Powered by Python Flask</span>
-        </footer>
-
-    </main>
-</div>
-
-<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

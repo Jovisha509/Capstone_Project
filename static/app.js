@@ -1,105 +1,12 @@
 
 let devices = [];
-let temperatureChart;
-let temperatureHistory = [];
 
+// Display current date
 document.getElementById("currentDate").textContent =
-    new Date().toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-    });
+    new Date().toLocaleString();
 
-function initializeChart() {
-    const ctx = document.getElementById("temperatureChart");
-
-    temperatureChart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels: [],
-            datasets: [{
-                label: "Temperature °C",
-                data: [],
-                borderColor: "#2563eb",
-                backgroundColor: "rgba(37, 99, 235, 0.10)",
-                fill: true,
-                tension: 0.4,
-                pointRadius: 3,
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false,
-                    grid: {
-                        color: "#edf1f7"
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    }
-                }
-            }
-        }
-    });
-}
-
-function renderDevices() {
-    const table = document.getElementById("deviceTable");
-    const search = document.getElementById("searchInput")
-        .value.toLowerCase();
-
-    const filtered = devices.filter(device =>
-        String(device.id || "").toLowerCase().includes(search) ||
-        String(device.name || "").toLowerCase().includes(search) ||
-        String(device.location || "Not specified")
-            .toLowerCase().includes(search)
-    );
-
-    table.innerHTML = "";
-
-    if (filtered.length === 0) {
-        table.innerHTML =
-            '<tr><td colspan="6">No devices found</td></tr>';
-    }
-
-    filtered.forEach(device => {
-        const status = String(device.status || "Offline");
-        const statusClass =
-            status.toLowerCase() === "online"
-                ? "status-online"
-                : "status-offline";
-
-        table.innerHTML += `
-            <tr>
-                <td class="device-id">${device.id}</td>
-                <td>${device.name || "Unknown"}</td>
-                <td>${device.location || "Not specified"}</td>
-                <td>${device.temperature ?? "--"} °C</td>
-                <td>${device.humidity ?? "--"}%</td>
-                <td>
-                    <span class="status ${statusClass}">
-                        ${status}
-                    </span>
-                </td>
-            </tr>
-        `;
-    });
-
-    document.getElementById("deviceCount").textContent =
-        `Showing ${filtered.length} of ${devices.length} devices`;
-}
-
-function updateStatistics(devices) {
+// Update dashboard statistics
+function updateStatistics() {
 
     const total = devices.length;
 
@@ -109,54 +16,157 @@ function updateStatistics(devices) {
 
     const offline = total - online;
 
-    const averageTemperature = online > 0
-        ? devices
-            .filter(device => device.status === "Online")
-            .reduce((sum, device) => sum + Number(device.temperature), 0) / online
+    const onlineDevices = devices.filter(
+        device => device.status === "Online"
+    );
+
+    const averageTemperature = onlineDevices.length > 0
+        ? onlineDevices.reduce(
+            (sum, device) => sum + Number(device.temperature || 0),
+            0
+        ) / onlineDevices.length
         : 0;
 
     document.getElementById("totalDevices").textContent = total;
+
     document.getElementById("onlineDevices").textContent = online;
+
     document.getElementById("offlineDevices").textContent = offline;
+
     document.getElementById("averageTemperature").textContent =
         averageTemperature.toFixed(1) + "°C";
-
-    document.getElementById("healthPercent").textContent =
-        total > 0 ? Math.round((online / total) * 100) + "%" : "0%";
-
-    document.getElementById("legendOnline").textContent = online;
-    document.getElementById("legendOffline").textContent = offline;
 }
 
+
+// Display device details in the table
+function renderDevices() {
+
+    const table = document.getElementById("deviceTable");
+
+    const searchValue = document.getElementById("searchInput")
+        .value.toLowerCase();
+
+    const filteredDevices = devices.filter(device => {
+
+        return (
+            String(device.id || "").toLowerCase().includes(searchValue) ||
+            String(device.name || "").toLowerCase().includes(searchValue)
+        );
+
+    });
+
+    table.innerHTML = "";
+
+    if (filteredDevices.length === 0) {
+
+        table.innerHTML = `
+            <tr>
+                <td colspan="5">No devices found</td>
+            </tr>
+        `;
+
+    } else {
+
+        filteredDevices.forEach(device => {
+
+            const statusClass =
+                device.status === "Online" ? "online" : "offline";
+
+            const row = document.createElement("tr");
+
+            const values = [
+                device.id,
+                device.name,
+                device.status,
+                `${device.temperature}°C`,
+                `${device.humidity}%`
+            ];
+
+            values.forEach((value, index) => {
+                const cell = document.createElement("td");
+
+                // Use textContent to safely display device data
+                cell.textContent = value ?? "N/A";
+
+                if (index === 2) {
+                    cell.className = statusClass;
+                }
+
+                row.appendChild(cell);
+            });
+
+            table.appendChild(row);
+
+        });
+
+    }
+
+    document.getElementById("deviceCount").textContent =
+        `Showing ${filteredDevices.length} of ${devices.length} devices`;
+}
+
+
+// Fetch device details from Flask API
 async function refreshDashboard() {
+
+    const message = document.getElementById("message");
+
     try {
+
+        message.textContent = "Refreshing device details...";
+
         const response = await fetch("/api/devices", {
             cache: "no-store"
         });
 
         if (!response.ok) {
-            throw new Error("Unable to fetch device details");
+            throw new Error(`API error: ${response.status}`);
         }
 
-        devices = await response.json();
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+            throw new Error("Invalid device data received");
+        }
+
+        devices = data;
+
+        console.log("Latest device data:", devices);
 
         updateStatistics();
+
         renderDevices();
 
+        message.textContent = "Device details updated successfully.";
+
     } catch (error) {
+
         console.error("Refresh failed:", error);
+
+        message.textContent =
+            "Unable to load device details. Check the API and console.";
     }
+
 }
 
+
+// Search devices
+document.getElementById("searchInput").addEventListener(
+    "input",
+    renderDevices
+);
+
+
+// Make refresh function accessible to HTML button
 window.refreshDashboard = refreshDashboard;
 
-document.addEventListener('DOMContentLoaded', () => {
+
+// Load data when the page opens
+document.addEventListener("DOMContentLoaded", () => {
+
     refreshDashboard();
+
+    // Automatically refresh every 5 seconds
     setInterval(refreshDashboard, 5000);
+
 });
-
-initializeChart();
-refreshDashboard();
-
-// Automatically refresh every 5 seconds.
-setInterval(refreshDashboard, 5000);

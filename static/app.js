@@ -101,21 +101,32 @@ function renderDevices() {
 
 async function refreshDashboard() {
     try {
-        const response = await fetch('/api/devices');
+        const response = await fetch('/api/devices', {
+            cache: 'no-store'
+        });
 
         if (!response.ok) {
-            throw new Error('Failed to fetch device data');
+            throw new Error('Unable to fetch device data');
         }
 
-        devices = await response.json();
+        const devices = await response.json();
 
-        renderDevices();
-        updateStatistics();
+        console.log("Latest device data:", devices);
+
+        renderDevices(devices);
+        updateStatistics(devices);
 
     } catch (error) {
-        console.error('Dashboard refresh error:', error);
+        console.error("Refresh failed:", error);
     }
 }
+
+window.refreshDashboard = refreshDashboard;
+
+document.addEventListener('DOMContentLoaded', () => {
+    refreshDashboard();
+    setInterval(refreshDashboard, 5000);
+});
 
 initializeChart();
 refreshDashboard();

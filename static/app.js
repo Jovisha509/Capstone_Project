@@ -130,20 +130,18 @@ function updateStatistics(devices) {
 
 async function refreshDashboard() {
     try {
-        const response = await fetch('/api/devices', {
-            cache: 'no-store'
+        const response = await fetch("/api/devices", {
+            cache: "no-store"
         });
 
         if (!response.ok) {
-            throw new Error('Unable to fetch device data');
+            throw new Error("Unable to fetch device details");
         }
 
-        const devices = await response.json();
+        devices = await response.json();
 
-        console.log("Latest device data:", devices);
-
-        renderDevices(devices);
-        updateStatistics(devices);
+        updateStatistics();
+        renderDevices();
 
     } catch (error) {
         console.error("Refresh failed:", error);

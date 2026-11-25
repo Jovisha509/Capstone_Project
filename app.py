@@ -1,9 +1,11 @@
 
 from flask import Flask, render_template, jsonify, request
 from threading import Lock
-from datetime import datetime
 import random
-
+import boto3
+import json
+import logging
+from datetime import datetime, timezone
 app = Flask(__name__)
 
 data_lock = Lock()
@@ -85,7 +87,8 @@ def get_all_devices():
 
 @app.route("/api/refresh", methods=["POST"])
 def refresh_devices():
-    """Generate new readings for online demo devices."""
+
+    readings_to_save = []
 
     with data_lock:
         for device in devices:
@@ -107,11 +110,26 @@ def refresh_devices():
                 timespec="seconds"
             )
 
-        return jsonify({
-            "success": True,
-            "message": "Sensor readings refreshed",
-            "devices": get_devices()
-        })
+            readings_to_save.append(device.copy())
+
+        current_devices = get_devices()
+
+    # Upload outside the lock so S3 network requests
+    # do not block other dashboard requests.
+    for reading in readings_to_save:
+        try:
+            store_sensor_data(reading)
+        except Exception:
+            app.logger.exception(
+                "Failed to upload reading for %s",
+                reading["id"]
+            )
+
+    return jsonify({
+        "success": True,
+        "message": "Sensor readings refreshed",
+        "devices": current_devices
+    })
 
 
 @app.route("/api/sensor", methods=["POST"])
@@ -171,6 +189,47 @@ def update_sensor():
         "success": False,
         "message": "Device not found"
     }), 404
+
+# Amazon S3 configuration
+S3_BUCKET = "iot-sensor-telemetry-storage"
+
+s3 = boto3.client("s3")
+
+logging.basicConfig(level=logging.INFO)
+
+
+def store_sensor_data(device):
+    """Store one sensor reading in Amazon S3."""
+
+    timestamp = datetime.now(timezone.utc)
+
+    sensor_record = {
+        "device_id": device["id"],
+        "device_name": device["name"],
+        "location": device["location"],
+        "status": device["status"],
+        "temperature": device["temperature"],
+        "humidity": device["humidity"],
+        "timestamp": timestamp.isoformat()
+    }
+
+    # Organize files by device and date
+    s3_key = (
+        f"sensor-data/{device['id']}/"
+        f"{timestamp.strftime('%Y/%m/%d/')}"
+        f"reading-{timestamp.strftime('%H%M%S%f')}.json"
+    )
+
+    s3.put_object(
+        Bucket=S3_BUCKET,
+        Key=s3_key,
+        Body=json.dumps(sensor_record),
+        ContentType="application/json"
+    )
+
+    logging.info("Sensor data uploaded to S3: %s", s3_key)
+
+    return s3_key
 
 
 if __name__ == "__main__":

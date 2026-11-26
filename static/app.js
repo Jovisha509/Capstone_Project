@@ -229,21 +229,36 @@ function addS3HistoryPanel() {
   section.id = "s3HistoryPanel";
   section.className = "section-block panel";
   section.innerHTML = `
-    <div class="panel-heading"><div><span class="section-kicker">AMAZON S3</span>
-    <h2>Historical Sensor Data</h2><p>Retrieve previously stored readings from S3.</p></div></div>
-    <div class="history-controls">
-      <label>Device<select id="s3HistoryDevice"></select></label>
-      <label>From<input type="date" id="s3HistoryStart"></label>
-      <label>To<input type="date" id="s3HistoryEnd"></label>
-      <button id="s3HistoryLoad" type="button">Load history</button>
+    <div class="history-header">
+      <div class="history-title-group">
+        <span class="section-kicker">DATA ARCHIVE · AMAZON S3</span>
+        <h2>Historical Sensor Data</h2>
+        <p>Explore, compare and export previously recorded device telemetry.</p>
+      </div>
+      <div class="history-storage-pill"><span></span> Persistent cloud storage</div>
     </div>
-    <div id="s3HistoryMessage" class="message">Select a device and date range.</div>
-    <div class="chart-container history-chart"><canvas id="s3HistoryCanvas"></canvas></div>
-    <div class="table-wrapper"><table><thead><tr><th>TIMESTAMP</th><th>DEVICE</th><th>TEMPERATURE</th><th>HUMIDITY</th><th>PRESSURE</th><th>VIBRATION</th></tr></thead>
-    <tbody id="s3HistoryRows"><tr><td colspan="6" class="empty-state">No history loaded.</td></tr></tbody></table></div>
-    <div class="history-footer"><span id="s3HistoryCount">0 readings</span><button id="s3HistoryCsv" type="button" disabled>Export CSV</button></div>`;
-  const overview = document.querySelector(".overview-grid");
-  if (overview) overview.insertAdjacentElement("afterend", section);
+    <div class="history-filter-bar">
+      <label class="history-field history-device-field"><span>DEVICE</span><select id="s3HistoryDevice"></select></label>
+      <label class="history-field"><span>START DATE</span><input type="date" id="s3HistoryStart"></label>
+      <label class="history-field"><span>END DATE</span><input type="date" id="s3HistoryEnd"></label>
+      <button class="history-load-button" id="s3HistoryLoad" type="button"><span>↻</span> Load history</button>
+    </div>
+    <div class="history-summary-row">
+      <div class="history-summary-card"><span class="history-summary-icon">▤</span><div><small>READINGS FOUND</small><strong id="s3HistoryCount">0</strong></div></div>
+      <div class="history-summary-card"><span class="history-summary-icon">◷</span><div><small>SELECTED PERIOD</small><strong id="s3HistoryPeriod">Last 7 days</strong></div></div>
+      <div class="history-summary-card"><span class="history-summary-icon">☁</span><div><small>DATA SOURCE</small><strong>Amazon S3</strong></div></div>
+    </div>
+    <div class="history-chart-card">
+      <div class="history-subheading"><div><h3>Temperature trend</h3><p>Historical temperature readings over the selected period</p></div><span class="history-unit">°C</span></div>
+      <div class="chart-container history-chart"><canvas id="s3HistoryCanvas"></canvas></div>
+    </div>
+    <div class="history-table-heading"><div><h3>Recorded readings</h3><p>Detailed sensor values retrieved from the archive</p></div><button class="history-export-button" id="s3HistoryCsv" type="button" disabled>↓ Export CSV</button></div>
+    <div id="s3HistoryMessage" class="history-message">Choose a device and date range, then load the archived readings.</div>
+    <div class="table-wrapper history-table-wrap"><table><thead><tr><th>TIMESTAMP</th><th>DEVICE</th><th>TEMPERATURE</th><th>HUMIDITY</th><th>PRESSURE</th><th>VIBRATION</th></tr></thead>
+    <tbody id="s3HistoryRows"><tr><td colspan="6" class="empty-state">No history loaded yet.</td></tr></tbody></table></div>`;
+  const inventory = document.querySelector(".device-panel");
+  const inventorySection = inventory?.closest(".section-block") || inventory;
+  if (inventorySection) inventorySection.insertAdjacentElement("afterend", section);
   else document.querySelector(".main-content")?.appendChild(section);
 
   const now = new Date(), from = new Date();
@@ -251,7 +266,16 @@ function addS3HistoryPanel() {
   document.getElementById("s3HistoryEnd").value = historyDateValue(now);
   document.getElementById("s3HistoryStart").value = historyDateValue(from);
   document.getElementById("s3HistoryLoad").addEventListener("click", loadS3History);
+  document.getElementById("s3HistoryStart").addEventListener("change", updateHistoryPeriod);
+  document.getElementById("s3HistoryEnd").addEventListener("change", updateHistoryPeriod);
+  updateHistoryPeriod();
   document.getElementById("s3HistoryCsv").addEventListener("click", exportS3History);
+}
+function updateHistoryPeriod() {
+  const start = document.getElementById("s3HistoryStart")?.value;
+  const end = document.getElementById("s3HistoryEnd")?.value;
+  const output = document.getElementById("s3HistoryPeriod");
+  if (output && start && end) output.textContent = `${start} → ${end}`;
 }
 function historyDateValue(d) {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
@@ -275,7 +299,10 @@ async function loadS3History() {
   const end = document.getElementById("s3HistoryEnd").value;
   const msg = document.getElementById("s3HistoryMessage");
   if (start > end) { msg.textContent = "Start date must be on or before end date."; msg.className = "message error"; return; }
-  msg.textContent = "Loading readings from S3..."; msg.className = "message";
+  msg.textContent = "Loading readings from S3…"; msg.className = "history-message is-loading";
+  const loadButton = document.getElementById("s3HistoryLoad");
+  loadButton.disabled = true; loadButton.innerHTML = "Loading…";
+  updateHistoryPeriod();
   const q = new URLSearchParams({device_id: device, start_date: start, end_date: end, limit: "1000"});
   try {
     const response = await fetch(`/api/history?${q}`, {cache: "no-store"});
@@ -283,10 +310,13 @@ async function loadS3History() {
     if (!response.ok || !result.success) throw new Error(result.message || `HTTP ${response.status}`);
     currentS3Readings = result.readings || [];
     renderS3History(currentS3Readings);
-    msg.textContent = `${result.count} reading(s) retrieved from S3.`;
+    msg.textContent = `${result.count} reading(s) retrieved successfully from Amazon S3.`;
+    msg.className = "history-message is-success";
   } catch (err) {
     msg.textContent = `Could not load S3 history: ${err.message}`;
-    msg.className = "message error";
+    msg.className = "history-message is-error";
+  } finally {
+    loadButton.disabled = false; loadButton.innerHTML = "↻ Load history";
   }
 }
 function renderS3History(rows) {
@@ -301,7 +331,7 @@ function renderS3History(rows) {
     });
     tbody.appendChild(tr);
   });
-  document.getElementById("s3HistoryCount").textContent = `${rows.length} reading(s)`;
+  document.getElementById("s3HistoryCount").textContent = rows.length.toLocaleString();
   document.getElementById("s3HistoryCsv").disabled = !rows.length;
   const canvas = document.getElementById("s3HistoryCanvas");
   if (typeof Chart !== "undefined" && canvas) {

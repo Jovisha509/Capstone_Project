@@ -211,3 +211,116 @@ function showMessage(message, isError = false) {
   element.className = isError ? "message error" : "message";
 }
 window.refreshDashboard = refreshDashboard;
+
+
+// ---------- S3 HISTORICAL DATA ----------
+let s3HistoryChart = null;
+let currentS3Readings = [];
+
+document.addEventListener("DOMContentLoaded", () => {
+  addS3HistoryPanel();
+  // Populate the device selector after the existing app has loaded devices.
+  setTimeout(populateS3HistoryDevices, 1200);
+});
+
+function addS3HistoryPanel() {
+  if (document.getElementById("s3HistoryPanel")) return;
+  const section = document.createElement("section");
+  section.id = "s3HistoryPanel";
+  section.className = "section-block panel";
+  section.innerHTML = `
+    <div class="panel-heading"><div><span class="section-kicker">AMAZON S3</span>
+    <h2>Historical Sensor Data</h2><p>Retrieve previously stored readings from S3.</p></div></div>
+    <div class="history-controls">
+      <label>Device<select id="s3HistoryDevice"></select></label>
+      <label>From<input type="date" id="s3HistoryStart"></label>
+      <label>To<input type="date" id="s3HistoryEnd"></label>
+      <button id="s3HistoryLoad" type="button">Load history</button>
+    </div>
+    <div id="s3HistoryMessage" class="message">Select a device and date range.</div>
+    <div class="chart-container history-chart"><canvas id="s3HistoryCanvas"></canvas></div>
+    <div class="table-wrapper"><table><thead><tr><th>TIMESTAMP</th><th>DEVICE</th><th>TEMPERATURE</th><th>HUMIDITY</th><th>PRESSURE</th><th>VIBRATION</th></tr></thead>
+    <tbody id="s3HistoryRows"><tr><td colspan="6" class="empty-state">No history loaded.</td></tr></tbody></table></div>
+    <div class="history-footer"><span id="s3HistoryCount">0 readings</span><button id="s3HistoryCsv" type="button" disabled>Export CSV</button></div>`;
+  const overview = document.querySelector(".overview-grid");
+  if (overview) overview.insertAdjacentElement("afterend", section);
+  else document.querySelector(".main-content")?.appendChild(section);
+
+  const now = new Date(), from = new Date();
+  from.setDate(now.getDate() - 6);
+  document.getElementById("s3HistoryEnd").value = historyDateValue(now);
+  document.getElementById("s3HistoryStart").value = historyDateValue(from);
+  document.getElementById("s3HistoryLoad").addEventListener("click", loadS3History);
+  document.getElementById("s3HistoryCsv").addEventListener("click", exportS3History);
+}
+function historyDateValue(d) {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+function populateS3HistoryDevices() {
+  const select = document.getElementById("s3HistoryDevice");
+  if (!select || !Array.isArray(devices)) return;
+  const previous = select.value;
+  select.innerHTML = "";
+  devices.forEach(d => {
+    const option = document.createElement("option");
+    option.value = d.id; option.textContent = `${d.id} – ${d.name}`;
+    select.appendChild(option);
+  });
+  if (previous) select.value = previous;
+}
+async function loadS3History() {
+  const device = document.getElementById("s3HistoryDevice").value;
+  const start = document.getElementById("s3HistoryStart").value;
+  const end = document.getElementById("s3HistoryEnd").value;
+  const msg = document.getElementById("s3HistoryMessage");
+  if (start > end) { msg.textContent = "Start date must be on or before end date."; msg.className = "message error"; return; }
+  msg.textContent = "Loading readings from S3..."; msg.className = "message";
+  const q = new URLSearchParams({device_id: device, start_date: start, end_date: end, limit: "1000"});
+  try {
+    const response = await fetch(`/api/history?${q}`, {cache: "no-store"});
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.message || `HTTP ${response.status}`);
+    currentS3Readings = result.readings || [];
+    renderS3History(currentS3Readings);
+    msg.textContent = `${result.count} reading(s) retrieved from S3.`;
+  } catch (err) {
+    msg.textContent = `Could not load S3 history: ${err.message}`;
+    msg.className = "message error";
+  }
+}
+function renderS3History(rows) {
+  const tbody = document.getElementById("s3HistoryRows");
+  tbody.innerHTML = "";
+  if (!rows.length) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No readings found for this device/date range.</td></tr>';
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    [r.timestamp ? new Date(r.timestamp).toLocaleString() : "—", r.device_id || "—",
+     r.temperature ?? "—", r.humidity ?? "—", r.pressure ?? "—", r.vibration ?? "—"].forEach(v => {
+      const td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  document.getElementById("s3HistoryCount").textContent = `${rows.length} reading(s)`;
+  document.getElementById("s3HistoryCsv").disabled = !rows.length;
+  const canvas = document.getElementById("s3HistoryCanvas");
+  if (typeof Chart !== "undefined" && canvas) {
+    if (s3HistoryChart) s3HistoryChart.destroy();
+    s3HistoryChart = new Chart(canvas, {
+      type: "line",
+      data: {labels: rows.map(r => r.timestamp ? new Date(r.timestamp).toLocaleString() : ""),
+        datasets: [{label:"Temperature °C", data:rows.map(r => r.temperature == null ? null : Number(r.temperature)),
+          borderColor:"#4169e1", backgroundColor:"rgba(65,105,225,.10)", fill:true, tension:.3, spanGaps:true}]},
+      options: {responsive:true, maintainAspectRatio:false, interaction:{intersect:false,mode:"index"},
+        scales:{x:{ticks:{maxTicksLimit:8}}}}
+    });
+  }
+}
+function exportS3History() {
+  if (!currentS3Readings.length) return;
+  const cols = ["timestamp","device_id","device_name","location","temperature","humidity","pressure","vibration","status","s3_key"];
+  const quote = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+  const csv = [cols.join(","), ...currentS3Readings.map(r => cols.map(c => quote(r[c])).join(","))].join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"}));
+  const a = document.createElement("a"); a.href=url; a.download="iot-s3-history.csv"; a.click(); URL.revokeObjectURL(url);
+}

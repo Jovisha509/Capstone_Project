@@ -1,0 +1,11 @@
+
+#s3HistoryPanel{margin-top:24px}
+.history-controls{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:14px 0}
+.history-controls label{display:grid;gap:6px;color:#7c899d;font-size:10px;font-weight:600}
+.history-controls select,.history-controls input{border:1px solid #e4e9f0;border-radius:6px;padding:9px 10px;background:#fff;color:#34445b;font:11px "DM Sans"}
+.history-controls button,.history-footer button{border:0;border-radius:6px;padding:10px 14px;background:#4169e1;color:#fff;font:600 11px "DM Sans";cursor:pointer}
+.history-controls button:disabled,.history-footer button:disabled{opacity:.5;cursor:not-allowed}
+.history-chart{height:240px;margin:12px 0 20px}
+.history-footer{display:flex;justify-content:space-between;align-items:center;padding-top:12px;color:#8491a5;font-size:10px}
+.history-footer button{background:#159b70}
+@media(max-width:600px){.history-controls{align-items:stretch;flex-direction:column}.history-controls label,.history-controls select,.history-controls input,.history-controls button{width:100%}}

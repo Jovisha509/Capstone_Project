@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "jovishajv/capstone_proj_repo"
-        EC2_HOST = "16.113.2.110"
+        EC2_HOST = "16.113.157.30"
     }
 
     stages {
